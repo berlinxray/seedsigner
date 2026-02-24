@@ -53,7 +53,6 @@ import hmac
 import os
 import sys
 import unicodedata
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -62,56 +61,32 @@ from pathlib import Path
 # BIP-39 English wordlist (2048 words)
 # ---------------------------------------------------------------------------
 
-# SHA-256 of the canonical wordlist (one word per line, trailing newline)
 _WORDLIST_SHA256 = "2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda"
-_WORDLIST_URL = "https://raw.githubusercontent.com/bitcoin/bips/master/bip-0039/english.txt"
 
 
 def _load_wordlist() -> list[str]:
-    """Load the BIP-39 English wordlist.
+    """Load the BIP-39 English wordlist from a local file.
 
-    Checks for a cached copy next to this script. If not found, downloads
-    from the official bitcoin/bips GitHub repo and verifies the SHA-256
-    hash before saving.
+    Looks for 'bip39_wordlist_english.txt' next to this script.
+    Verifies SHA-256 hash to ensure integrity.
     """
-    cache_path = Path(__file__).parent / "bip39_wordlist_english.txt"
+    path = Path(__file__).parent / "bip39_wordlist_english.txt"
 
-    # Try cached file
-    if cache_path.exists():
-        data = cache_path.read_text(encoding="utf-8")
-        if hashlib.sha256(data.encode("utf-8")).hexdigest() == _WORDLIST_SHA256:
-            words = data.strip().splitlines()
-            if len(words) == 2048:
-                return words
-        print(f"WARNING: Cached wordlist at {cache_path} failed hash check, re-downloading...")
-
-    # Download
-    print(f"Downloading BIP-39 wordlist from {_WORDLIST_URL} ...")
-    try:
-        with urllib.request.urlopen(_WORDLIST_URL, timeout=15) as resp:
-            raw = resp.read().decode("utf-8")
-    except Exception as e:
-        print(f"ERROR: Failed to download wordlist: {e}")
-        print(f"Please manually download it and place at: {cache_path}")
+    if not path.exists():
+        print(f"ERROR: Wordlist not found at: {path}")
+        print("Please place 'bip39_wordlist_english.txt' (2048 words) next to this script.")
+        print("Download from: https://raw.githubusercontent.com/bitcoin/bips/master/bip-0039/english.txt")
         sys.exit(1)
 
-    # Verify SHA-256
-    actual_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-    if actual_hash != _WORDLIST_SHA256:
-        print(f"ERROR: Downloaded wordlist SHA-256 mismatch!")
-        print(f"  Expected: {_WORDLIST_SHA256}")
-        print(f"  Got:      {actual_hash}")
+    data = path.read_text(encoding="utf-8")
+    if hashlib.sha256(data.encode("utf-8")).hexdigest() != _WORDLIST_SHA256:
+        print(f"ERROR: Wordlist at {path} failed SHA-256 integrity check!")
         sys.exit(1)
 
-    words = raw.strip().splitlines()
+    words = data.strip().splitlines()
     if len(words) != 2048:
         print(f"ERROR: Wordlist has {len(words)} words, expected 2048")
         sys.exit(1)
-
-    # Cache for next time
-    cache_path.write_text(raw, encoding="utf-8")
-    print(f"Wordlist cached to: {cache_path}")
-    print()
 
     return words
 
